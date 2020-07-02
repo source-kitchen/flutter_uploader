@@ -10,7 +10,7 @@ public class SwiftFlutterUploaderPlugin: NSObject, FlutterPlugin, URLSessionTask
     static let KEY_MAXIMUM_CONCURRENT_TASK = "FUMaximumConnectionsPerHost"
     static let KEY_MAXIMUM_CONCURRENT_UPLOAD_OPERATION = "FUMaximumUploadOperation"
     static let KEY_TIMEOUT_IN_SECOND = "FUTimeoutInSeconds"
-    static let KEY_BACKGROUND_SESSION_IDENTIFIER = "chillisource.flutter_uploader.upload.background"
+    static let KEY_BACKGROUND_SESSION_IDENTIFIER = "flutter_uploader.upload.background"
     static let KEY_ALL_FILES_UPLOADED_MESSAGE = "FUAllFilesUploadedMessage"
     static let KEY_FILE_NAME = "filename"
     static let KEY_FIELD_NAME = "fieldname"
@@ -129,6 +129,7 @@ public class SwiftFlutterUploaderPlugin: NSObject, FlutterPlugin, URLSessionTask
         let sessionConfiguration = URLSessionConfiguration.background(withIdentifier: SwiftFlutterUploaderPlugin.KEY_BACKGROUND_SESSION_IDENTIFIER)
         sessionConfiguration.httpMaximumConnectionsPerHost = maxConcurrentTasks.intValue
         sessionConfiguration.timeoutIntervalForRequest = timeout
+        sessionConfiguration.timeoutIntervalForResource = timeout
         self.session = URLSession(configuration: sessionConfiguration, delegate: self, delegateQueue: queue)
     }
 
@@ -437,7 +438,7 @@ public class SwiftFlutterUploaderPlugin: NSObject, FlutterPlugin, URLSessionTask
     public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
 
         guard let uploadTask = task as? URLSessionUploadTask else {
-            NSLog("URLSessionDidCompleteWithError: not an uplaod task")
+            NSLog("URLSessionDidCompleteWithError: not an upload task")
             return
         }
 
@@ -469,7 +470,9 @@ public class SwiftFlutterUploaderPlugin: NSObject, FlutterPlugin, URLSessionTask
             response = task.response as? HTTPURLResponse
 
             if response != nil {
-                NSLog("URLSessionDidCompleteWithError: \(taskId) with response: \(response!) and status: \(response!.statusCode)")
+                if response!.statusCode != 200 {
+                    NSLog("URLSessionDidCompleteWithError: \(taskId) with status: \(response!.statusCode) and response: \(response!)")
+                }
                 statusCode = response!.statusCode
                 hasResponseError = !isRequestSuccessful(response!.statusCode)
             }
@@ -527,6 +530,18 @@ public class SwiftFlutterUploaderPlugin: NSObject, FlutterPlugin, URLSessionTask
         } else {
             NSLog("URLSessionDidCompleteWithError: task: \(getTaskStatusText(uploadTask.state)) statusCode: \(response?.statusCode ?? -1), error:\(error?.localizedDescription ?? "none")")
             self.sendUploadFailedForTaskId(taskId, inStatus: .failed, statusCode: statusCode, error: FlutterError(code: "upload_error", message: error?.localizedDescription, details: Thread.callStackSymbols), tag: tag)
+        }
+
+        if self.runningTaskById.count == 0 {
+            let state = UIApplication.shared.applicationState
+            if(state == .background || state == .inactive) {
+                OperationQueue.main.addOperation({
+                    let localNotification = UILocalNotification()
+                    //localNotification.alertBody = "All files uploaded"
+                    localNotification.alertBody = self.allFileUploadedMessage
+                    UIApplication.shared.presentLocalNotificationNow(localNotification)
+                })
+            }
         }
     }
 
@@ -602,19 +617,21 @@ public class SwiftFlutterUploaderPlugin: NSObject, FlutterPlugin, URLSessionTask
             let bytesExpectedToSend = Double(integerLiteral: totalBytesExpectedToSend)
             let tBytesSent = Double(integerLiteral: totalBytesSent)
             let progress = round(Double(tBytesSent / bytesExpectedToSend * 100))
-            let runningTask = self.runningTaskById[taskId]
-            NSLog("URLSessionDidSendBodyData: taskId: \(taskId), byteSent: \(bytesSent), totalBytesSent: \(totalBytesSent), totalBytesExpectedToSend: \(totalBytesExpectedToSend), progress:\(progress)")
+            self.taskQueue.async {
+                let runningTask = self.runningTaskById[taskId]
+                NSLog("URLSessionDidSendBodyData: taskId: \(taskId), byteSent: \(bytesSent), totalBytesSent: \(totalBytesSent), totalBytesExpectedToSend: \(totalBytesExpectedToSend), progress:\(progress)")
 
-            if runningTask != nil {
-                let isRunning: (Int, Int, Int) -> Bool = {
-                    (current, previous, step) in
-                    let prev = previous + step
-                    return (current == 0 || current > prev || current >= 100) &&  current != previous
-                }
+                if runningTask != nil {
+                    let isRunning: (Int, Int, Int) -> Bool = {
+                        (current, previous, step) in
+                        let prev = previous + step
+                        return (current == 0 || current > prev || current >= 100) &&  current != previous
+                    }
 
-                if isRunning(Int(progress), runningTask!.progress, SwiftFlutterUploaderPlugin.STEP_UPDATE) {
-                    self.sendUpdateProgressForTaskId(taskId, inStatus: .running, andProgress: Int(progress), andTag: runningTask?.tag)
-                    self.runningTaskById[taskId] = UploadTask(taskId: taskId, status: .running, progress: Int(progress), tag: runningTask?.tag)
+                    if isRunning(Int(progress), runningTask!.progress, SwiftFlutterUploaderPlugin.STEP_UPDATE) {
+                        self.sendUpdateProgressForTaskId(taskId, inStatus: .running, andProgress: Int(progress), andTag: runningTask?.tag)
+                        self.runningTaskById[taskId] = UploadTask(taskId: taskId, status: .running, progress: Int(progress), tag: runningTask?.tag)
+                    }
                 }
             }
         }
