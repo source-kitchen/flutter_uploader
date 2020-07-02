@@ -104,7 +104,7 @@ public class SwiftFlutterUploaderPlugin: NSObject, FlutterPlugin, URLSessionTask
         if let concurrentTasks = mainBundle.object(forInfoDictionaryKey: SwiftFlutterUploaderPlugin.KEY_MAXIMUM_CONCURRENT_TASK) {
             maxConcurrentTasks = concurrentTasks as! NSNumber
         } else {
-            maxConcurrentTasks = NSNumber(integerLiteral: 3)
+            maxConcurrentTasks = NSNumber(integerLiteral: 5)
         }
 
         NSLog("MAXIMUM_CONCURRENT_TASKS = \(maxConcurrentTasks)")
@@ -113,7 +113,7 @@ public class SwiftFlutterUploaderPlugin: NSObject, FlutterPlugin, URLSessionTask
         if let operationTask = mainBundle.object(forInfoDictionaryKey: SwiftFlutterUploaderPlugin.KEY_MAXIMUM_CONCURRENT_UPLOAD_OPERATION) {
             maxUploadOperation = operationTask as! NSNumber
         } else {
-            maxUploadOperation = NSNumber(integerLiteral: 2)
+            maxUploadOperation = NSNumber(integerLiteral: 5)
         }
 
         NSLog("MAXIMUM_CONCURRENT_UPLOAD_OPERATION = \(maxUploadOperation)")

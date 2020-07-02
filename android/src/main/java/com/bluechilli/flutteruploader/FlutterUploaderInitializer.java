@@ -19,7 +19,7 @@ import java.util.concurrent.Executors;
 public class FlutterUploaderInitializer extends ContentProvider {
 
   private static final String TAG = "UploaderInitializer";
-  private static final int DEFAULT_MAX_CONCURRENT_TASKS = 3;
+  private static final int DEFAULT_MAX_CONCURRENT_TASKS = 5;
   private static final int DEFAULT_UPLOAD_CONNECTION_TIMEOUT = 3600;
 
   @Override
