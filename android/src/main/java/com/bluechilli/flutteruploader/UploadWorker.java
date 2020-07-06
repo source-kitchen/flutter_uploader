@@ -1,10 +1,12 @@
 package com.bluechilli.flutteruploader;
 
+import android.app.Activity;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.res.Resources;
+import android.content.Intent;
 import android.os.Build;
 import android.util.Log;
 import android.webkit.MimeTypeMap;
@@ -60,9 +62,10 @@ public class UploadWorker extends Worker implements CountProgressListener {
   private static final int UPDATE_STEP = 0;
   private static final int DEFAULT_ERROR_STATUS_CODE = 500;
 
-  private NotificationCompat.Builder builder;
+  private static NotificationCompat.Builder builder;
   private boolean showNotification;
   private String msgStarted, msgInProgress, msgCanceled, msgFailed, msgComplete;
+  private static String msgBatchComplete;
   private int lastProgress = 0;
   private int lastNotificationProgress = 0;
   private String tag;
@@ -100,6 +103,7 @@ public class UploadWorker extends Worker implements CountProgressListener {
     msgCanceled = res.getString(R.string.flutter_uploader_notification_canceled);
     msgFailed = res.getString(R.string.flutter_uploader_notification_failed);
     msgComplete = res.getString(R.string.flutter_uploader_notification_complete);
+    msgBatchComplete = res.getString(R.string.flutter_uploader_notification_batch_complete);
 
     try {
       Map<String, String> headers = null;
@@ -429,7 +433,7 @@ public class UploadWorker extends Worker implements CountProgressListener {
     sendUpdateProcessEvent(getApplicationContext(), UploadStatus.FAILED, -1);
   }
 
-  private void buildNotification(Context context) {
+  public static void buildNotification(Context context) {
     // Make a channel if necessary
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       // Create the NotificationChannel, but only on API 26+ because
@@ -488,6 +492,20 @@ public class UploadWorker extends Worker implements CountProgressListener {
       NotificationManagerCompat.from(context)
           .notify(getId().toString(), primaryId, builder.build());
     }
+  }
+
+  public static void updateSummaryNotification(
+          Context context, Activity mainActivity) {
+    builder.setContentTitle(msgBatchComplete);
+    builder.setOngoing(false);
+
+    Intent intent = new Intent(Intent.ACTION_MAIN, null);
+    intent.setClass(context, mainActivity.getClass());
+    PendingIntent notifyPendingIntent = PendingIntent.getActivity(context, 1000, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+    builder.setContentIntent(notifyPendingIntent);
+
+    NotificationManagerCompat.from(context)
+            .notify("summary", 0, builder.build());
   }
 
   private boolean isRunning(int currentProgress, int previousProgress, int step) {

@@ -48,6 +48,9 @@ public class FlutterUploaderPlugin
   private Gson gson = new Gson();
   private int taskIdKey = 0;
   private final String[] validHttpMethods = new String[] {"POST", "PUT", "PATCH"};
+  private Map<String, Boolean> runningTasks = new HashMap<>();
+  private boolean appInBackground = false;
+  private Activity mainActivity;
 
   public static void registerWith(Registrar registrar) {
     final MethodChannel channel = new MethodChannel(registrar.messenger(), CHANNEL_NAME);
@@ -114,6 +117,10 @@ public class FlutterUploaderPlugin
 
             switch (info.getState()) {
               case FAILED:
+                if (plugin.runningTasks.containsKey(id)) {
+                  plugin.runningTasks.remove(id);
+                  plugin.showSummaryNotificationIfNeeded();
+                }
                 int failedStatus =
                     outputData.getInt(UploadWorker.EXTRA_STATUS, UploadStatus.FAILED);
                 int statusCode = outputData.getInt(UploadWorker.EXTRA_STATUS_CODE, 500);
@@ -123,6 +130,10 @@ public class FlutterUploaderPlugin
                 plugin.sendFailed(id, failedStatus, statusCode, code, errorMessage, details);
                 break;
               case CANCELLED:
+                if (plugin.runningTasks.containsKey(id)) {
+                  plugin.runningTasks.remove(id);
+                  plugin.showSummaryNotificationIfNeeded();
+                }
                 plugin.sendFailed(
                     id,
                     UploadStatus.CANCELED,
@@ -132,6 +143,10 @@ public class FlutterUploaderPlugin
                     null);
                 break;
               case SUCCEEDED:
+                if (plugin.runningTasks.containsKey(id)) {
+                  plugin.runningTasks.remove(id);
+                  plugin.showSummaryNotificationIfNeeded();
+                }
                 int status = outputData.getInt(UploadWorker.EXTRA_STATUS, UploadStatus.COMPLETE);
                 Map<String, String> headers = null;
                 Type type = new TypeToken<Map<String, String>>() {}.getType();
@@ -178,11 +193,14 @@ public class FlutterUploaderPlugin
 
   @Override
   public void onActivityStarted(Activity activity) {
+    mainActivity = activity;
     if (activity == register.activity()) {
       uploadProgressObserver = new UploadProgressObserver(this);
       UploadProgressReporter.getInstance().observeForever(uploadProgressObserver);
 
       uploadCompletedObserver = new UploadCompletedObserver(this);
+      WorkManager.getInstance(register.context())
+          .pruneWork();
       WorkManager.getInstance(register.context())
           .getWorkInfosByTagLiveData(TAG)
           .observeForever(uploadCompletedObserver);
@@ -190,10 +208,14 @@ public class FlutterUploaderPlugin
   }
 
   @Override
-  public void onActivityResumed(Activity activity) {}
+  public void onActivityResumed(Activity activity) {
+    appInBackground = false;
+  }
 
   @Override
-  public void onActivityPaused(Activity activity) {}
+  public void onActivityPaused(Activity activity) {
+    appInBackground = true;
+  }
 
   @Override
   public void onActivityStopped(Activity activity) {
@@ -311,6 +333,10 @@ public class FlutterUploaderPlugin
       tasks.put(taskId, tag);
     }
 
+    if (!runningTasks.containsKey(taskId)) {
+      runningTasks.put(taskId, true);
+    }
+
     result.success(taskId);
     sendUpdateProgress(taskId, UploadStatus.ENQUEUED, 0);
   }
@@ -360,6 +386,7 @@ public class FlutterUploaderPlugin
         .addTag(TAG)
         .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 5, TimeUnit.SECONDS)
         .setInputData(dataBuilder.build())
+        .setInitialDelay(1, TimeUnit.SECONDS)
         .build();
   }
 
@@ -398,5 +425,12 @@ public class FlutterUploaderPlugin
     args.put("headers", headers);
     args.put("tag", tag);
     channel.invokeMethod("uploadCompleted", args);
+  }
+
+  private void showSummaryNotificationIfNeeded() {
+    if (runningTasks.size() == 0 && appInBackground) {
+      UploadWorker.buildNotification(register.context());
+      UploadWorker.updateSummaryNotification(register.context(), mainActivity);
+    }
   }
 }

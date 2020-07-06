@@ -5,4 +5,5 @@
   <string name="flutter_uploader_notification_canceled">Upload canceled</string>
   <string name="flutter_uploader_notification_failed">Upload failed</string>
   <string name="flutter_uploader_notification_complete">Upload complete</string>
+  <string name="flutter_uploader_notification_batch_complete">All files have been uploaded</string>
 </resources>

@@ -533,15 +533,11 @@ public class SwiftFlutterUploaderPlugin: NSObject, FlutterPlugin, URLSessionTask
         }
 
         if self.runningTaskById.count == 0 {
-            let state = UIApplication.shared.applicationState
-            if(state == .background || state == .inactive) {
-                OperationQueue.main.addOperation({
-                    let localNotification = UILocalNotification()
-                    //localNotification.alertBody = "All files uploaded"
-                    localNotification.alertBody = self.allFileUploadedMessage
-                    UIApplication.shared.presentLocalNotificationNow(localNotification)
-                })
-            }
+            OperationQueue.main.addOperation({
+                let localNotification = UILocalNotification()
+                localNotification.alertBody = self.allFileUploadedMessage
+                UIApplication.shared.presentLocalNotificationNow(localNotification)
+            })
         }
     }
 
