@@ -22,7 +22,7 @@ class UploadTaskStatus {
       case 1:
         return "Enqueued";
       case 2:
-        return "Running";
+        return "Uploading";
       case 3:
         return "Completed";
       case 4:
