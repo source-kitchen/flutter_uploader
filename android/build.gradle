@@ -1,7 +1,7 @@
 group 'com.bluechilli.flutteruploader'
 version '1.0-SNAPSHOT'
 def lifecycle_version = "2.1.0"
-def work_version = "2.2.0"
+def work_version = "2.7.1"
 def futures_version = "1.0.0-beta01"
 def core_version = "1.2.0-alpha04"
 def annotation_version = "1.1.0"
