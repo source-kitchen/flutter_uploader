@@ -501,7 +501,7 @@ public class UploadWorker extends Worker implements CountProgressListener {
 
     Intent intent = new Intent(Intent.ACTION_MAIN, null);
     intent.setClass(context, mainActivity.getClass());
-    final int intentFlags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_IMMUTABLE;
+    final int intentFlags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_UPDATE_CURRENT;
     PendingIntent notifyPendingIntent = PendingIntent.getActivity(context, 1000, intent, intentFlags);
     builder.setContentIntent(notifyPendingIntent);
 
